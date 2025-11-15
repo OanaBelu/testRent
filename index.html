@@ -97,11 +97,24 @@
     </style>
 </head>
 <body>
-    <!-- Add authentication check at the start of body -->
+   <!-- Add authentication check at the start of body -->
     <script>
+        // Verifică dacă utilizatorul este autentificat
         if (sessionStorage.getItem('authenticated') !== 'true') {
             window.location.href = 'login.html';
         }
+        
+        // Adaugă un mesaj de bun venit personalizat
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentUser = sessionStorage.getItem('currentUser');
+            if (currentUser) {
+                const greeting = document.createElement('div');
+                greeting.textContent = `Bun venit, ${currentUser}!`;
+                greeting.style.marginLeft = '20px';
+                greeting.style.color = '#660';
+                document.querySelector('h1').appendChild(greeting);
+            }
+        });
     </script>
 
     <div class="container">
