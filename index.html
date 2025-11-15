@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evidenta Chirie</title>
+    <!-- SheetJS pentru export Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"], input[type="date"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9f7ef;
+            border-radius: 4px;
+        }
+        .currency-input {
+            display: flex;
+            gap: 10px;
+        }
+        .currency-input input {
+            flex: 1;
+        }
+        .currency-input select {
+            width: 80px;
+        }
+        .logout-btn {
+            float: right;
+            background-color: #f44336;
+            color: white;
+            padding: 5px 10px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <!-- Add authentication check at the start of body -->
+    <script>
+        if (sessionStorage.getItem('authenticated') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
+
+    <div class="container">
+        <a href="#" id="logoutBtn" class="logout-btn" style="display: none;">Deconectare</a>
+        <h1>Evidența Chiriei</h1>
+        
+        <div class="form-group">
+            <h2>Adaugă Plată</h2>
+            <form id="paymentForm">
+                <div class="form-group">
+                    <label for="paymentDate">Data plății:</label>
+                    <input type="date" id="paymentDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Suma plătită:</label>
+                    <div class="currency-input">
+                        <input type="number" id="amount" step="0.01" min="0" required>
+                        <select id="currency">
+                            <option value="RON">RON</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Detalii (opțional):</label>
+                    <input type="text" id="description" placeholder="Ex: plată parțială, luna X">
+                </div>
+                
+                <button type="submit">Adaugă Plată</button>
+            </form>
+        </div>
+        
+        <div class="summary">
+            <h2>Sumar</h2>
+            <p>Chirie lunară: 370 EUR</p>
+            <p>Internet lunar: 66 RON</p>
+            <p>Total plătit: <span id="totalPaid">0.00</span> (din 12 luni)</p>
+            <p>Suma rămasă: <span id="remainingAmount">4,440.00 EUR + 792.00 RON</span></p>
+            
+            <div class="calculator" style="margin-top: 20px; padding: 15px; background-color: #e7f3ff; border-radius: 4px;">
+                <h3>Calculator plăți</h3>
+                <div class="form-group">
+                    <label>Verificare plată mixtă:</label>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-weight: normal;">Sumă în EUR:</label>
+                        <div class="currency-input">
+                            <input type="number" id="checkAmountEUR" step="0.01" min="0" placeholder="0.00" value="0">
+                            <span style="width: 80px; display: flex; align-items: center;">EUR</span>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="font-weight: normal;">Sumă în RON:</label>
+                        <div class="currency-input">
+                            <input type="number" id="checkAmountRON" step="0.01" min="0" placeholder="0.00" value="0">
+                            <span style="width: 80px; display: flex; align-items: center;">RON</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="checkPayment">Verifică plata</button>
+                <div id="checkResult" style="margin-top: 10px; padding: 10px; display: none; background-color: white; border-radius: 4px;">
+                    <p><strong>Rezultat verificare:</strong></p>
+                    <p id="checkMonths"></p>
+                    <p id="checkRemaining"></p>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0 10px 0;">
+            <h2 style="margin: 0;">Istoric Plăți</h2>
+            <button id="exportToExcel" style="background-color: #1e6f5c; padding: 8px 15px; font-size: 14px;">
+                Exportă în Excel
+            </button>
+        </div>
+        <table id="paymentsTable">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Sumă</th>
+                    <th>Monedă</th>
+                    <th>Echivalent EUR</th>
+                    <th>Echivalent RON</th>
+                    <th>Detalii</th>
+                </tr>
+            </thead>
+            <tbody id="paymentsList">
+                <!-- Payments will be added here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Exchange rate (you'll need to update this regularly)
+        const EUR_TO_RON = 4.97; // Example rate, update as needed
+        
+        // Monthly costs
+        const MONTHLY_RENT_EUR = 370;
+        const MONTHLY_INTERNET_RON = 66;
+        
+        // Load payments from localStorage
+        let payments = JSON.parse(localStorage.getItem('rentalPayments')) || [];
+        
+        // DOM elements
+        const paymentForm = document.getElementById('paymentForm');
+        const paymentsList = document.getElementById('paymentsList');
+        const totalPaidElement = document.getElementById('totalPaid');
+        const remainingAmountElement = document.getElementById('remainingAmount');
+        
+        // Format number with 2 decimal places
+        function formatNumber(num) {
+            return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+        
+        // Convert amount to EUR
+        function toEUR(amount, currency) {
+            return currency === 'RON' ? amount / EUR_TO_RON : amount;
+        }
+        
+        // Convert amount to RON
+        function toRON(amount, currency) {
+            return currency === 'EUR' ? amount * EUR_TO_RON : amount;
+        }
+        
+        // Calculate total paid in EUR and RON
+        function calculateTotals() {
+            let totalEUR = 0;
+            let totalRON = 0;
+            
+            payments.forEach(payment => {
+                if (payment.currency === 'EUR') {
+                    totalEUR += parseFloat(payment.amount);
+                    totalRON += toRON(payment.amount, 'EUR');
+                } else {
+                    totalRON += parseFloat(payment.amount);
+                    totalEUR += toEUR(payment.amount, 'RON');
+                }
+            });
+            
+            return { totalEUR, totalRON };
+        }
+        
+        // Calculate remaining amount
+        function calculateRemaining() {
+            const monthsPaid = Math.floor(calculateMonthsPaid());
+            const totalMonths = 12;
+            const monthsRemaining = Math.max(0, totalMonths - monthsPaid);
+            
+            const remainingEUR = monthsRemaining * MONTHLY_RENT_EUR;
+            const remainingRON = monthsRemaining * MONTHLY_INTERNET_RON;
+            
+            return { 
+                monthsPaid,
+                remainingEUR,
+                remainingRON,
+                totalMonths
+            };
+        }
+        
+        // Calculate how many full months have been paid
+        function calculateMonthsPaid() {
+            const { totalEUR, totalRON } = calculateTotals();
+            
+            // Calculate how many months of rent can be covered
+            const monthsFromEUR = totalEUR / MONTHLY_RENT_EUR;
+            const monthsFromRON = (totalRON - (monthsFromEUR * MONTHLY_INTERNET_RON)) / MONTHLY_INTERNET_RON;
+            
+            // Return the minimum of the two (as both need to be covered)
+            return Math.min(
+                monthsFromEUR,
+                monthsFromRON < 0 ? monthsFromEUR : monthsFromRON + monthsFromEUR
+            );
+        }
+        
+        // Add a new payment
+        function addPayment(date, amount, currency, description = '') {
+            const payment = {
+                id: Date.now(),
+                date,
+                amount: parseFloat(amount),
+                currency,
+                description,
+                timestamp: new Date(date).getTime()
+            };
+            
+            payments.push(payment);
+            payments.sort((a, b) => new Date(a.date) - new Date(b.date));
+            savePayments();
+            renderPayments();
+        }
+        
+        // Save payments to localStorage
+        function savePayments() {
+            localStorage.setItem('rentalPayments', JSON.stringify(payments));
+            updateSummary();
+        }
+        
+        // Render payments list
+        function renderPayments() {
+            paymentsList.innerHTML = '';
+            
+            if (payments.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="6" style="text-align: center;">Nu există plăți înregistrate</td>`;
+                paymentsList.appendChild(row);
+                return;
+            }
+            
+            payments.forEach(payment => {
+                const amountInEUR = payment.currency === 'EUR' ? payment.amount : (payment.amount / EUR_TO_RON);
+                const amountInRON = payment.currency === 'RON' ? payment.amount : (payment.amount * EUR_TO_RON);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(payment.date).toLocaleDateString('ro-RO')}</td>
+                    <td>${formatNumber(payment.amount)}</td>
+                    <td>${payment.currency}</td>
+                    <td>${payment.currency === 'EUR' ? formatNumber(payment.amount) : formatNumber(amountInEUR)}</td>
+                    <td>${payment.currency === 'RON' ? formatNumber(payment.amount) : formatNumber(amountInRON)}</td>
+                    <td>${payment.description || '-'}</td>
+                `;
+                paymentsList.appendChild(row);
+            });
+            
+            updateSummary();
+        }
+        
+        // Update the summary section
+        function updateSummary() {
+            const months = calculateMonthsPaid();
+            const remaining = calculateRemaining();
+            
+            totalPaidElement.textContent = `${formatNumber(months.toFixed(2))} (din ${remaining.totalMonths} luni)`;
+            remainingAmountElement.textContent = `${formatNumber(remaining.remainingEUR)} EUR + ${formatNumber(remaining.remainingRON)} RON`;
+        }
+        
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show logout button
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            
+            // Set default date to today
+            document.getElementById('paymentDate').valueAsDate = new Date();
+            
+            // Initial render
+            renderPayments();
+            
+            // Handle form submission
+            paymentForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const date = document.getElementById('paymentDate').value;
+                const amount = document.getElementById('amount').value;
+                const currency = document.getElementById('currency').value;
+                const description = document.getElementById('description').value;
+                
+                if (!date || !amount) return;
+                
+                addPayment(date, amount, currency, description);
+                
+                // Reset form
+                this.reset();
+                document.getElementById('paymentDate').valueAsDate = new Date();
+            });
+            
+            // Handle payment check
+            document.getElementById('checkPayment').addEventListener('click', function() {
+                const amountEUR = parseFloat(document.getElementById('checkAmountEUR').value) || 0;
+                const amountRON = parseFloat(document.getElementById('checkAmountRON').value) || 0;
+                
+                // Calculate with the temporary payment
+                const currentTotals = calculateTotals();
+                let tempTotalEUR = currentTotals.totalEUR;
+                let tempTotalRON = currentTotals.totalRON;
+                
+                // Add the new amount to the appropriate currency
+                if (amountEUR) {
+                    tempTotalEUR += amountEUR;
+                }
+                
+                if (amountRON) {
+                    tempTotalRON += amountRON;
+                }
+                
+                // Calculate months paid with the temporary payment
+                const monthsFromEUR = tempTotalEUR / MONTHLY_RENT_EUR;
+                const monthsFromRON = tempTotalRON / MONTHLY_INTERNET_RON;
+                
+                // Calculate how many full months can be covered
+                const monthsPaid = Math.min(monthsFromEUR, monthsFromRON);
+                const fullMonths = Math.floor(monthsPaid);
+                const remainingMonths = Math.max(0, 12 - fullMonths);
+                
+                const remainingEUR = remainingMonths * MONTHLY_RENT_EUR;
+                const remainingRON = remainingMonths * MONTHLY_INTERNET_RON;
+                
+                // Calculate partial month if any
+                const partialMonth = monthsPaid - fullMonths;
+                let partialMonthText = '';
+                
+                if (partialMonth > 0 && remainingMonths > 0) {
+                    const partialEUR = (1 - partialMonth) * MONTHLY_RENT_EUR;
+                    const partialRON = (1 - partialMonth) * MONTHLY_INTERNET_RON;
+                    partialMonthText = ` (plus o plată parțială de ${formatNumber(partialEUR)} EUR + ${formatNumber(partialRON)} RON pentru luna următoare)`;
+                }
+                
+                // Display results
+                const resultDiv = document.getElementById('checkResult');
+                document.getElementById('checkMonths').innerHTML = 
+                    `Această plată ar acoperi aproximativ <strong>${monthsPaid.toFixed(2)} luni</strong> de chirie.`;
+                
+                if (remainingMonths > 0) {
+                    document.getElementById('checkRemaining').innerHTML = 
+                        `După această plată, rămân de plătit:<br>` +
+                        `<strong>${formatNumber(remainingEUR)} EUR</strong> (chirie) + ` +
+                        `<strong>${formatNumber(remainingRON)} RON</strong> (internet) pentru ${remainingMonths} luni${partialMonthText}.`;
+                } else {
+                    document.getElementById('checkRemaining').innerHTML = 
+                        `Această plată acoperă integral cele 12 luni!`;
+                }
+                
+                resultDiv.style.display = 'block';
+                
+                // Scroll to results
+                resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+            
+            // Allow pressing Enter in the check amount field
+            document.getElementById('checkAmountEUR').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('checkPayment').click();
+                }
+            });
+            
+            document.getElementById('checkAmountRON').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('checkPayment').click();
+                }
+            });
+            
+            // Handle Excel export
+            document.getElementById('exportToExcel').addEventListener('click', function() {
+                try {
+                    // Prepare data for export
+                    const data = [
+                        ['Data', 'Sumă', 'Monedă', 'Echivalent EUR', 'Echivalent RON', 'Detalii']
+                    ];
+                    
+                    // Add each payment to the export data
+                    let totalEUR = 0;
+                    let totalRON = 0;
+                    
+                    payments.forEach(payment => {
+                        const amountInEUR = payment.currency === 'EUR' ? payment.amount : (payment.amount / EUR_TO_RON);
+                        const amountInRON = payment.currency === 'RON' ? payment.amount : (payment.amount * EUR_TO_RON);
+                        
+                        totalEUR += parseFloat(amountInEUR);
+                        totalRON += parseFloat(amountInRON);
+                        
+                        data.push([
+                            new Date(payment.date).toLocaleDateString('ro-RO'),
+                            parseFloat(payment.amount).toFixed(2),
+                            payment.currency,
+                            parseFloat(amountInEUR).toFixed(2),
+                            parseFloat(amountInRON).toFixed(2),
+                            payment.description || '-'
+                        ]);
+                    });
+                    
+                    // Calculate remaining payment
+                    const remaining = calculateRemaining();
+                    const monthsPaid = Math.floor(calculateMonthsPaid());
+                    const remainingMonths = 12 - monthsPaid;
+                    
+                    // Add an empty row
+                    data.push(['', '', '', '', '', '']);
+                    
+                    // Add totals
+                    data.push(['TOTAL GENERAL:', 
+                        '', 
+                        '', 
+                        totalEUR.toFixed(2) + ' EUR', 
+                        totalRON.toFixed(2) + ' RON',
+                        ''
+                    ]);
+                    
+                    // Add remaining payment
+                    if (remainingMonths > 0) {
+                        data.push(['REST DE PLATĂ:', 
+                            '', 
+                            '', 
+                            remaining.remainingEUR.toFixed(2) + ' EUR', 
+                            remaining.remainingRON.toFixed(2) + ' RON',
+                            `pentru ${remainingMonths} luni`
+                        ]);
+                        
+                        // If there's a remaining payment, add monthly amount
+                        data.push(['PE LUNA:', 
+                            '', 
+                            '', 
+                            (remaining.remainingEUR / remainingMonths).toFixed(2) + ' EUR', 
+                            (remaining.remainingRON / remainingMonths).toFixed(2) + ' RON',
+                            `pe lună (${remainingMonths} luni)`
+                        ]);
+                    } else {
+                        data.push(['TOATE PLĂȚILE AU FOST EFECTUATE', '', '', '', '', '']);
+                    }
+                    
+                    // Create a workbook and worksheet
+                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Plati Chirie");
+                    
+                    // Set column widths
+                    ws['!cols'] = [
+                        {wch: 12}, // Data
+                        {wch: 12}, // Sumă
+                        {wch: 8},  // Monedă
+                        {wch: 15}, // Echiv. EUR
+                        {wch: 15}, // Echiv. RON
+                        {wch: 30}  // Detalii
+                    ];
+                    
+                    // Style cells
+                    const range = XLSX.utils.decode_range(ws['!ref']);
+                    
+                    // Style header
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cell_address = {c:C, r:0};
+                        const cell_ref = XLSX.utils.encode_cell(cell_address);
+                        if (!ws[cell_ref]) continue;
+                        ws[cell_ref].s = {
+                            font: { bold: true, color: { rgb: "FFFFFF" } },
+                            fill: { fgColor: { rgb: "4472C4" } }
+                        };
+                    }
+                    
+                    // Style totals
+                    const totalRow = data.length - (remainingMonths > 0 ? 3 : 2);
+                    const totalCellEUR = XLSX.utils.encode_cell({r: totalRow, c: 3});
+                    const totalCellRON = XLSX.utils.encode_cell({r: totalRow, c: 4});
+                    
+                    if (!ws[totalCellEUR]) ws[totalCellEUR] = {t: 's'};
+                    if (!ws[totalCellRON]) ws[totalCellRON] = {t: 's'};
+                    
+                    ws[totalCellEUR].s = { font: { bold: true, color: { rgb: "000000" } } };
+                    ws[totalCellRON].s = { font: { bold: true, color: { rgb: "000000" } } };
+                    
+                    // Style remaining payment
+                    if (remainingMonths > 0) {
+                        const remainingRow1 = totalRow + 1;
+                        const remainingRow2 = totalRow + 2;
+                        
+                        // Style "REST DE PLATĂ" row
+                        for (let C = 0; C <= 5; C++) {
+                            const cell = XLSX.utils.encode_cell({r: remainingRow1, c: C});
+                            if (!ws[cell]) ws[cell] = {t: 's'};
+                            ws[cell].s = { 
+                                font: { bold: true, color: { rgb: "FF0000" } },
+                                fill: { fgColor: { rgb: "FFE6E6" } }
+                            };
+                        }
+                        
+                        // Style "PE LUNA" row
+                        for (let C = 0; C <= 5; C++) {
+                            const cell = XLSX.utils.encode_cell({r: remainingRow2, c: C});
+                            if (!ws[cell]) ws[cell] = {t: 's'};
+                            ws[cell].s = { 
+                                font: { italic: true, color: { rgb: "FF0000" } }
+                            };
+                        }
+                    }
+                    
+                    // Generate the Excel file
+                    const date = new Date().toISOString().split('T')[0];
+                    XLSX.writeFile(wb, `Plati_Chirie_${date}.xlsx`);
+                    
+                } catch (error) {
+                    console.error('Eroare la generarea fișierului Excel:', error);
+                    alert('A apărut o eroare la generarea fișierului Excel. Vă rugăm încercați din nou sau contactați administratorul.');
+                }
+            });
+            
+            // Handle logout
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                sessionStorage.removeItem('authenticated');
+                window.location.href = 'login.html';
+            });
+        });
+    </script>
+</body>
+</html>
